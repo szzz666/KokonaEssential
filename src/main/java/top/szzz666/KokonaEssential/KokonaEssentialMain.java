@@ -1,44 +1,45 @@
 package top.szzz666.KokonaEssential;
 
-import top.szzz666.KokonaEssential.command.QQCommand;
-import top.szzz666.KokonaEssential.command.QQCommandManage;
+
 import top.szzz666.KokonaEssential.config.MyConfig;
-import top.szzz666.KokonaEssential.listener.QQListeners;
 import top.szzz666.KokonaEssential.tools.HtmlImageUtil;
+import top.szzz666.command.Command;
+import top.szzz666.command.CommandManage;
 import top.szzz666.plugin.KokonaPlugin;
 import top.szzz666.plugin.PluginBase;
 import top.szzz666.qq.bot.MsgBuilder;
 import top.szzz666.qq.entity.Event;
-import top.szzz666.qq.listener.QQEventManage;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static top.szzz666.KokonaEssential.command.QQCommand.PERM_ALL;
-import static top.szzz666.KokonaEssential.command.QQCommand.SCOPE_BOTH;
 import static top.szzz666.KokonaEssential.config.MyConfig.*;
+import static top.szzz666.command.Command.*;
 
 
 @KokonaPlugin(name = "KokonaEssential")
 public class KokonaEssentialMain extends PluginBase {
+    public static PluginBase plugin;
 
     @Override
     public void onLoad() {
+        plugin = this;
         MyConfig.initConfig();
-        logger.info("KokonaEssential 插件读取...");
+        logger.info("{} 插件读取...", this.getName());
     }
 
     @Override
     public void onEnable() {
-        QQEventManage.registerListener(new QQListeners());
-        QQCommandManage.register(commands, description, "基础", PERM_ALL, SCOPE_BOTH, KokonaEssentialMain::onHelp);
-        logger.info("KokonaEssential 插件已启用");
+//        QQEventManage.registerListener(new QQListeners());
+        CommandManage.register(commands, description, "基础", PERM_ALL, SCOPE_BOTH, KokonaEssentialMain::onHelp);
+        logger.info("{}  插件已启用", this.getName());
     }
 
     @Override
     public void onDisable() {
-        logger.info("KokonaEssential 插件已关闭");
+        logger.info("{} 插件已关闭", this.getName());
     }
 
     // ==================== 命令实现 ====================
@@ -73,13 +74,15 @@ public class KokonaEssentialMain extends PluginBase {
                 box-shadow:0 2px 8px rgba(0,0,0,0.08);">\
                 📋 功能列表</div>""";
 
-        Map<String, List<QQCommand>> grouped = new LinkedHashMap<>();
-        for (QQCommand cmd : QQCommandManage.getCommands()) {
-            grouped.computeIfAbsent(cmd.category(), k -> new java.util.ArrayList<>()).add(cmd);
+        Map<String, List<Command>> grouped = new LinkedHashMap<>();
+        for (Command cmd : CommandManage.getCommands()) {
+            if (cmd.permission() < PERM_CONSOLE) {
+                grouped.computeIfAbsent(cmd.category(), k -> new ArrayList<>()).add(cmd);
+            }
         }
 
         StringBuilder commandHtml = new StringBuilder();
-        for (Map.Entry<String, List<QQCommand>> entry : grouped.entrySet()) {
+        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
             commandHtml.append(String.format("""
                     <div style="\
                     color:#e67e22;font-size:16px;font-weight:bold;\
@@ -88,12 +91,12 @@ public class KokonaEssentialMain extends PluginBase {
                     border-radius:8px;\
                     border-left:4px solid #e67e22;">📁 %s</div>""", escapeHtml(entry.getKey())));
 
-            for (QQCommand cmd : entry.getValue()) {
+            for (Command cmd : entry.getValue()) {
                 String cmdName = escapeHtml(prefix + cmd.names().get(0));
                 String aliases = cmd.names().size() > 1
                         ? "<span style=\"color:#7f8c8d;font-size:13px;\">("
-                          + escapeHtml(String.join("/", cmd.names().subList(1, cmd.names().size())))
-                          + ")</span>"
+                        + escapeHtml(String.join("/", cmd.names().subList(1, cmd.names().size())))
+                        + ")</span>"
                         : "";
                 String desc = escapeHtml(cmd.description());
                 String perm = permLabel(cmd.permission());
@@ -118,14 +121,14 @@ public class KokonaEssentialMain extends PluginBase {
     private static String buildHelpText() {
         StringBuilder sb = new StringBuilder("===== 命令列表 =====\n");
 
-        Map<String, List<QQCommand>> grouped = new LinkedHashMap<>();
-        for (QQCommand cmd : QQCommandManage.getCommands()) {
+        Map<String, List<Command>> grouped = new LinkedHashMap<>();
+        for (Command cmd : CommandManage.getCommands()) {
             grouped.computeIfAbsent(cmd.category(), k -> new java.util.ArrayList<>()).add(cmd);
         }
 
-        for (Map.Entry<String, List<QQCommand>> entry : grouped.entrySet()) {
+        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
             sb.append("\n【").append(entry.getKey()).append("】\n");
-            for (QQCommand cmd : entry.getValue()) {
+            for (Command cmd : entry.getValue()) {
                 sb.append("  ").append(prefix).append(cmd.names().get(0));
                 if (cmd.names().size() > 1) {
                     sb.append("(").append(String.join("/", cmd.names().subList(1, cmd.names().size()))).append(")");
@@ -140,9 +143,9 @@ public class KokonaEssentialMain extends PluginBase {
 
     private static String escapeHtml(String text) {
         return text.replace("&", "&amp;")
-                   .replace("<", "&lt;")
-                   .replace(">", "&gt;")
-                   .replace("\"", "&quot;");
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 
     // ==================== 工具方法 ====================
@@ -150,9 +153,9 @@ public class KokonaEssentialMain extends PluginBase {
     private static String permLabel(int perm) {
         return switch (perm) {
             case PERM_ALL -> "所有人";
-            case QQCommand.PERM_GROUP_ADMIN -> "群管理";
-            case QQCommand.PERM_GROUP_OWNER -> "群主";
-            case QQCommand.PERM_SUPER_ADMIN -> "超管";
+            case Command.PERM_GROUP_ADMIN -> "群管理";
+            case Command.PERM_GROUP_OWNER -> "群主";
+            case Command.PERM_SUPER_ADMIN -> "超管";
             default -> "未知";
         };
     }

@@ -5,6 +5,8 @@ import top.szzz666.config.EasyConfig;
 
 import java.util.List;
 
+import static top.szzz666.KokonaEssential.KokonaEssentialMain.plugin;
+
 public class MyConfig {
     @ConfigItem(key = "command.names", comment = "命令名")
     public static List<String> commands = List.of("菜单", "帮助", "功能");
@@ -18,7 +20,7 @@ public class MyConfig {
     public static EasyConfig ec;
 
     public static void initConfig() {
-        ec = new EasyConfig("plugins/KokonaEssential/config.yml");
+        ec = new EasyConfig(plugin + "/config.yml");
         ec.loadFromClass(MyConfig.class);
         ec.load();
     }
