@@ -1,6 +1,7 @@
 package top.szzz666.KokonaEssential;
 
 
+import cn.hutool.cron.CronUtil;
 import top.szzz666.KokonaEssential.config.MyConfig;
 import top.szzz666.KokonaEssential.tools.HtmlImageUtil;
 import top.szzz666.command.Command;
@@ -34,6 +35,8 @@ public class KokonaEssentialMain extends PluginBase {
     public void onEnable() {
 //        QQEventManage.registerListener(new QQListeners());
         CommandManage.register(commands, description, "基础", PERM_ALL, SCOPE_BOTH, KokonaEssentialMain::onHelp);
+        CronUtil.setMatchSecond(matchSecond);
+        CronUtil.start();
         logger.info("{}  插件已启用", this.getName());
     }
 
@@ -92,7 +95,7 @@ public class KokonaEssentialMain extends PluginBase {
                     border-left:4px solid #e67e22;">📁 %s</div>""", escapeHtml(entry.getKey())));
 
             for (Command cmd : entry.getValue()) {
-                String cmdName = escapeHtml(prefix + cmd.names().get(0));
+                String cmdName = escapeHtml(cmd.names().get(0));
                 String aliases = cmd.names().size() > 1
                         ? "<span style=\"color:#7f8c8d;font-size:13px;\">("
                         + escapeHtml(String.join("/", cmd.names().subList(1, cmd.names().size())))
@@ -129,7 +132,7 @@ public class KokonaEssentialMain extends PluginBase {
         for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
             sb.append("\n【").append(entry.getKey()).append("】\n");
             for (Command cmd : entry.getValue()) {
-                sb.append("  ").append(prefix).append(cmd.names().get(0));
+                sb.append("  ").append(cmd.names().get(0));
                 if (cmd.names().size() > 1) {
                     sb.append("(").append(String.join("/", cmd.names().subList(1, cmd.names().size()))).append(")");
                 }
