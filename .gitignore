@@ -39,3 +39,6 @@ dependency-reduced-pom.xml
 !**/src/main/**/target/
 !**/src/test/**/target/
 META-INF/
+
+### Test ###
+test/

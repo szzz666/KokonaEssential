@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" build-on-make="true" name="QQLike">
-    <output-path>$PROJECT_DIR$/../TestServer/plugins</output-path>
-    <root id="archive" name="QQLike.jar">
-      <element id="module-output" name="KokonaEssential" />
-    </root>
-  </artifact>
-</component>

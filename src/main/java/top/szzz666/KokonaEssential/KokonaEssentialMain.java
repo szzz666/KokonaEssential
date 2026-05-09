@@ -1,16 +1,18 @@
 package top.szzz666.KokonaEssential;
 
 
-import cn.hutool.cron.CronUtil;
 import top.szzz666.KokonaEssential.config.MyConfig;
-import top.szzz666.KokonaEssential.tools.HtmlImageUtil;
 import top.szzz666.command.Command;
 import top.szzz666.command.CommandManage;
 import top.szzz666.plugin.KokonaPlugin;
 import top.szzz666.plugin.PluginBase;
 import top.szzz666.qq.bot.MsgBuilder;
 import top.szzz666.qq.entity.Event;
+import top.szzz666.tools.FileUtil;
+import top.szzz666.tools.HtmlToImageUtil;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,33 +26,41 @@ import static top.szzz666.command.Command.*;
 public class KokonaEssentialMain extends PluginBase {
     public static PluginBase plugin;
 
+
     @Override
     public void onLoad() {
         plugin = this;
         MyConfig.initConfig();
-        logger.info("{} 插件读取...", this.getName());
+        plugin.getLogger().info("{} 插件读取...", this.getName());
     }
 
     @Override
     public void onEnable() {
 //        QQEventManage.registerListener(new QQListeners());
         CommandManage.register(commands, description, "基础", PERM_ALL, SCOPE_BOTH, KokonaEssentialMain::onHelp);
-        CronUtil.setMatchSecond(matchSecond);
-        CronUtil.start();
-        logger.info("{}  插件已启用", this.getName());
+        plugin.getLogger().info("{}  插件已启用", this.getName());
     }
 
     @Override
     public void onDisable() {
-        logger.info("{} 插件已关闭", this.getName());
+        plugin.getLogger().info("{} 插件已关闭", this);
     }
 
     // ==================== 命令实现 ====================
 
     private static void onHelp(Event event, String commandName, String[] args) {
-        String html = buildHelpHtml();
         new Thread(() -> {
-            String base64Img = HtmlImageUtil.htmlToBase64(html, 600);
+            String html = buildHelpHtml();
+            String base64Img = null;
+            try {
+                base64Img = HtmlToImageUtil.convertToDataUri(html,
+                        new HtmlToImageUtil.HtmlToImageOptions()
+                                .setWidth(520)
+                                .setQuality(95));
+//                plugin.getLogger().info("帮助图片生成成功: {}", base64Img);
+            } catch (Exception e) {
+                plugin.getLogger().warn("帮助图片生成失败，回退到文本模式: {}", e.getMessage());
+            }
             if (base64Img != null) {
                 replyImage(event, base64Img);
             } else {
@@ -59,97 +69,89 @@ public class KokonaEssentialMain extends PluginBase {
         }).start();
     }
 
-    // ==================== HTML 构建 ====================
-
     private static String buildHelpHtml() {
-        String header = """
-                <html><body style="\
-                background-color:#f5f7fa;\
-                color:#2c3e50;\
-                font-family:Microsoft YaHei,SimHei,Dialog,sans-serif;\
-                padding:20px;margin:0;">\
-                <div style="\
-                text-align:center;font-size:22px;font-weight:bold;\
-                color:#3498db;padding:12px;\
-                background-color:#ffffff;\
-                border-radius:12px;\
-                margin-bottom:15px;\
-                box-shadow:0 2px 8px rgba(0,0,0,0.08);">\
-                📋 功能列表</div>""";
+        Map<String, List<Command>> grouped = getGroupedCommands();
+        StringBuilder cards = new StringBuilder();
+        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
+            cards.append("<div class=\"card\">");
+            cards.append("<div class=\"card-title\">").append(entry.getKey()).append("</div>");
+            for (Command cmd : entry.getValue()) {
+                String names = String.join(" / ", cmd.names());
+                cards.append("<div class=\"cmd-row\">");
+                cards.append("<span class=\"cmd-name\">").append(names).append("</span>");
+                cards.append("<span class=\"cmd-perm\">").append(permLabel(cmd.permission())).append("</span>");
+                cards.append("</div>");
+                cards.append("<div class=\"cmd-desc\">").append(cmd.description()).append("</div>");
+            }
+            cards.append("</div>");
+        }
+        Path htmlPath = Path.of(plugin.getConfigFolderPath(), "help.html");
+        if (!htmlPath.toFile().exists()) {
+            try {
+                FileUtil.loadRecourseFromJar("/help.html", plugin.getConfigFolderPath(), KokonaEssentialMain.class);
+            } catch (IOException e) {
+                plugin.getLogger().warn("默认help.html复制失败: {}", e.getMessage());
+            }
+        }
+        String htmlTemplate = FileUtil.readFileAsString(htmlPath.toString());
+        return htmlTemplate.replace("<!--%cards%-->", cards.toString());
+    }
 
+    private static String buildHelpText() {
+        Map<String, List<Command>> grouped = getGroupedCommands();
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== Kokona Essential 帮助 ===\n\n");
+        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
+            sb.append("【").append(entry.getKey()).append("】\n");
+            for (Command cmd : entry.getValue()) {
+                String names = String.join(" / ", cmd.names());
+                sb.append("  ").append(names).append(" — ").append(cmd.description())
+                  .append(" [").append(permLabel(cmd.permission())).append("]\n");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+
+
+    // ==================== 额外命令加载 ====================
+
+
+    private static List<Command> loadExtraCommands() {
+        List<Command> extra = new ArrayList<>();
+        if (extraCommands == null) return extra;
+        for (Map<String, Object> item : extraCommands) {
+            try {
+                List<String> names = item.get("names") instanceof List<?> list
+                        ? list.stream().map(Object::toString).toList()
+                        : List.of(item.getOrDefault("names", "").toString());
+                String desc = item.getOrDefault("description", "").toString();
+                String category = item.getOrDefault("category", "其他").toString();
+                int perm = item.get("permission") instanceof Number n ? n.intValue() : PERM_ALL;
+                String scopes = item.getOrDefault("scopes", SCOPE_BOTH).toString();
+                extra.add(new Command(names, desc, category, perm, scopes, (evt, name, args) -> {
+                }));
+            } catch (Exception e) {
+                plugin.getLogger().warn("加载额外命令配置失败: {}", item);
+            }
+        }
+        return extra;
+    }
+
+    
+
+
+    private static Map<String, List<Command>> getGroupedCommands() {
         Map<String, List<Command>> grouped = new LinkedHashMap<>();
         for (Command cmd : CommandManage.getCommands()) {
             if (cmd.permission() < PERM_CONSOLE) {
                 grouped.computeIfAbsent(cmd.category(), k -> new ArrayList<>()).add(cmd);
             }
         }
-
-        StringBuilder commandHtml = new StringBuilder();
-        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
-            commandHtml.append(String.format("""
-                    <div style="\
-                    color:#e67e22;font-size:16px;font-weight:bold;\
-                    margin:14px 0 8px 0;padding:6px 12px;\
-                    background-color:#fff8f0;\
-                    border-radius:8px;\
-                    border-left:4px solid #e67e22;">📁 %s</div>""", escapeHtml(entry.getKey())));
-
-            for (Command cmd : entry.getValue()) {
-                String cmdName = escapeHtml(cmd.names().get(0));
-                String aliases = cmd.names().size() > 1
-                        ? "<span style=\"color:#7f8c8d;font-size:13px;\">("
-                        + escapeHtml(String.join("/", cmd.names().subList(1, cmd.names().size())))
-                        + ")</span>"
-                        : "";
-                String desc = escapeHtml(cmd.description());
-                String perm = permLabel(cmd.permission());
-
-                commandHtml.append(String.format("""
-                        <div style="\
-                        padding:10px 14px;\
-                        border-left:4px solid #3498db;\
-                        background-color:#ffffff;\
-                        margin-bottom:8px;\
-                        border-radius:10px;\
-                        box-shadow:0 1px 4px rgba(0,0,0,0.06);">\
-                        <span style="color:#2980b9;font-weight:bold;font-size:16px;">%s</span>%s<br>\
-                        <span style="color:#555555;font-size:14px;">%s</span>\
-                        <span style="color:#e67e22;font-size:13px;font-weight:bold;"> [%s]</span>\
-                        </div>""", cmdName, aliases, desc, perm));
-            }
-        }
-        return header + commandHtml + "</body></html>";
+        return grouped;
     }
-
-    private static String buildHelpText() {
-        StringBuilder sb = new StringBuilder("===== 命令列表 =====\n");
-
-        Map<String, List<Command>> grouped = new LinkedHashMap<>();
-        for (Command cmd : CommandManage.getCommands()) {
-            grouped.computeIfAbsent(cmd.category(), k -> new java.util.ArrayList<>()).add(cmd);
-        }
-
-        for (Map.Entry<String, List<Command>> entry : grouped.entrySet()) {
-            sb.append("\n【").append(entry.getKey()).append("】\n");
-            for (Command cmd : entry.getValue()) {
-                sb.append("  ").append(cmd.names().get(0));
-                if (cmd.names().size() > 1) {
-                    sb.append("(").append(String.join("/", cmd.names().subList(1, cmd.names().size()))).append(")");
-                }
-                sb.append(" - ").append(cmd.description());
-                sb.append(" [").append(permLabel(cmd.permission())).append("]");
-                sb.append("\n");
-            }
-        }
-        return sb.toString().trim();
-    }
-
-    private static String escapeHtml(String text) {
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;");
-    }
+    
 
     // ==================== 工具方法 ====================
 

@@ -4,6 +4,7 @@ import top.szzz666.config.ConfigItem;
 import top.szzz666.config.EasyConfig;
 
 import java.util.List;
+import java.util.Map;
 
 import static top.szzz666.KokonaEssential.KokonaEssentialMain.plugin;
 
@@ -14,13 +15,13 @@ public class MyConfig {
     @ConfigItem(key = "command.description", comment = "描述")
     public static String description = "显示可用功能列表";
 
-    @ConfigItem(key = "matchSecond", comment = "是否匹配秒")
-    public static boolean matchSecond = true;
+    @ConfigItem(key = "extraCommands", comment = "额外命令列表（仅用于HTML菜单展示，不注册实际执行器）")
+    public static List<Map<String, Object>> extraCommands = List.of();
 
     public static EasyConfig ec;
 
     public static void initConfig() {
-        ec = new EasyConfig(plugin + "/config.yml");
+        ec = new EasyConfig(plugin.getConfigFolderPath() + "/config.yml");
         ec.loadFromClass(MyConfig.class);
         ec.load();
     }
