@@ -43,7 +43,7 @@ public class KokonaEssentialMain extends PluginBase {
 
     @Override
     public void onDisable() {
-        plugin.getLogger().info("{} 插件已关闭", this);
+        plugin.getLogger().info("{} 插件已关闭", this.getName());
     }
 
     // ==================== 命令实现 ====================
@@ -144,7 +144,12 @@ public class KokonaEssentialMain extends PluginBase {
 
     private static Map<String, List<Command>> getGroupedCommands() {
         Map<String, List<Command>> grouped = new LinkedHashMap<>();
-        for (Command cmd : CommandManage.getCommands()) {
+        List<Command> commands = new ArrayList<>(CommandManage.getCommands());
+        commands.addAll(loadExtraCommands());
+        for (String s : hiddenCommands){
+            commands.removeIf(cmd -> cmd.names().getFirst().equals(s));
+        }
+        for (Command cmd : commands) {
             if (cmd.permission() < PERM_CONSOLE) {
                 grouped.computeIfAbsent(cmd.category(), k -> new ArrayList<>()).add(cmd);
             }

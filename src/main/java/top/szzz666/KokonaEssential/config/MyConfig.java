@@ -3,8 +3,10 @@ package top.szzz666.KokonaEssential.config;
 import top.szzz666.config.ConfigItem;
 import top.szzz666.config.EasyConfig;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 import static top.szzz666.KokonaEssential.KokonaEssentialMain.plugin;
 
@@ -16,7 +18,18 @@ public class MyConfig {
     public static String description = "显示可用功能列表";
 
     @ConfigItem(key = "extraCommands", comment = "额外命令列表（仅用于HTML菜单展示，不注册实际执行器）")
-    public static List<Map<String, Object>> extraCommands = List.of();
+    public static List<Map<String, Object>> extraCommands = new ArrayList<>(List.of(
+            new LinkedHashMap<>(Map.of(
+                    "names", List.of("示例命令"),
+                    "description", "这是一个示例额外命令",
+                    "category", "其他",
+                    "permission", 0,
+                    "scopes", "both"
+            ))
+    ));
+
+    @ConfigItem(key = "hiddenCommands", comment = "隐藏命令列表（在HTML菜单中不显示的）")
+    public static List<String> hiddenCommands = new ArrayList<>();
 
     public static EasyConfig ec;
 
